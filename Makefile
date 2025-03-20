@@ -1,2 +1,2 @@
 main:
-	gcc encoder.c
+	gcc encoder.c -o ZEncode

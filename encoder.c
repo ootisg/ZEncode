@@ -12,6 +12,9 @@ char* dbug_serialize_char(char c) {
 
 void encode_file(char* filepath) {
 
+    int ADD_COMPRESSOR_DEBUG = 0;
+    int PRINT_COMPRESSOR_OUTPUT = 0;
+
     search_window buf;
     search_window_init(&buf, 1024);
 
@@ -24,12 +27,14 @@ void encode_file(char* filepath) {
     }
     fclose(f);
 
+    FILE* f2 = fopen("encoded.bin", "w");
+
     int buf_len = idx;
     int buf_idx = 0;
     int max_len = 32;
     while(buf_idx < buf_len) {
 
-        int bytes_left = buf_len - buf_idx - 1;
+        int bytes_left = buf_len - buf_idx;
         match_info m = search_window_match(&buf, &(fbuf[buf_idx]), bytes_left < max_len ? bytes_left : max_len);
         if(m.match_len > 0) {
             search_window_append_chars(&buf, &(fbuf[buf_idx]), m.match_len);
@@ -37,34 +42,100 @@ void encode_file(char* filepath) {
             search_window_append_char(&buf, m.nomatch_symbol);
         }
 
-        int add_dbug = 1;
-        printf("%d %d", m.match_idx, m.match_len);
+        char sbuf[1024];
+        sprintf(sbuf, "%d %d", m.match_idx, m.match_len);
+        if(PRINT_COMPRESSOR_OUTPUT) { printf(sbuf, "%s"); }
+        fputs(sbuf, f2);
         if(m.match_len == 0) {
-            printf(" %d", m.nomatch_symbol);
+            sprintf(sbuf, " %d", m.nomatch_symbol);
+            if(PRINT_COMPRESSOR_OUTPUT) { printf(sbuf, "%s"); }
+            fputs(sbuf, f2);
         }
-        if (add_dbug) {
+        if (ADD_COMPRESSOR_DEBUG) {
             printf(" ");
             if(m.match_len == 0) {
-                printf("%s", dbug_serialize_char(m.nomatch_symbol));
+                sprintf(sbuf, "%s", dbug_serialize_char(m.nomatch_symbol));
+                if(PRINT_COMPRESSOR_OUTPUT) { printf(sbuf, "%s"); }
+                fputs(sbuf, f2);
             } else {
                 int i;
                 for(i = 0; i < m.match_len; i++) {
-                    printf("%s", dbug_serialize_char(fbuf[buf_idx + i]));
+                    sprintf(sbuf, "%s", dbug_serialize_char(fbuf[buf_idx + i]));
+                    if(PRINT_COMPRESSOR_OUTPUT) { printf(sbuf, "%s"); }
+                    fputs(sbuf, f2);
                 }
             }
         }
-        printf("\n");
+        if(PRINT_COMPRESSOR_OUTPUT) { printf("\n"); }
+        fputc('\n', f2);
 
         buf_idx += m.match_len > 0 ? m.match_len : 1;
 
     }
 
+    fclose(f2);
+
 }
 
 void decode_file(char* filepath) {
 
+    int PRINT_DECOMPRESSOR_OUTPUT = 0;
+
+    cbuf out;
+    cbuf_init(&out, 1024);
+
+    FILE* f = fopen(filepath, "r");
+    FILE* f2 = fopen("decoded.bin", "wb");
+    char sbuf[1024];
+    int last_macthes = 0;
+    while(last_macthes != EOF) {
+        int offs, len, symbol;
+        last_macthes = fscanf(f, "%d", &offs);
+        last_macthes = fscanf(f, "%d", &len);
+        if (len == 0) { last_macthes = fscanf(f, "%d", &symbol); }
+        if (len == 0) {
+            cbuf_append_char(&out, (char)symbol);
+            if(PRINT_DECOMPRESSOR_OUTPUT) { printf("%c", (char)symbol); }
+            fputc((char)symbol, f2);
+        } else {
+            int idx = offs;
+            int i;
+            char buf[1024];
+            for (i = 0; i < len; i++) {
+                buf[i] = cbuf_get(&out, idx - i);
+            }
+            //buf[i + 1] = '\0';
+            for(i = 0; i < len; i++) {
+                cbuf_append_char(&out, buf[i]);
+                if(PRINT_DECOMPRESSOR_OUTPUT) { printf("%c", buf[i]); }
+                fputc(buf[i], f2);
+            }
+            //cbuf_append_chars(&out, buf, len);
+            //printf("%s", buf);
+        }
+    }
 }
 
 int main(int argc, char** argv) {
-    encode_file("encoder.c");
+    int compressMode = 1;
+    char* filepath = NULL;
+    int i;
+    for (i = 1; i < argc; i++) {
+        if (argv[i][0] == '-') {
+            if (argv[i][1] == 'c') {
+                compressMode = 1;
+            } else if (argv[i][1] == 'd') {
+                compressMode = 0;
+            }
+        } else {
+            filepath = argv[i];
+        }
+    }
+    if (filepath) {
+        if (compressMode) {
+            encode_file(filepath);
+        } else {
+            decode_file(filepath);
+        }
+    }
 }
