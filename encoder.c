@@ -79,7 +79,7 @@ void encode_file(char* filepath) {
 
 void decode_file(char* filepath) {
 
-    int PRINT_DECOMPRESSOR_OUTPUT = 0;
+    int PRINT_DECOMPRESSOR_OUTPUT = 1;
 
     cbuf out;
     cbuf_init(&out, 1024);
@@ -88,10 +88,11 @@ void decode_file(char* filepath) {
     FILE* f2 = fopen("decoded.bin", "wb");
     char sbuf[1024];
     int last_macthes = 0;
+    int offs, len, symbol;
     while(last_macthes != EOF) {
-        int offs, len, symbol;
         last_macthes = fscanf(f, "%d", &offs);
         last_macthes = fscanf(f, "%d", &len);
+        if (last_macthes == EOF) { return; }  // Early return for EOF
         if (len == 0) { last_macthes = fscanf(f, "%d", &symbol); }
         if (len == 0) {
             cbuf_append_char(&out, (char)symbol);
@@ -104,14 +105,11 @@ void decode_file(char* filepath) {
             for (i = 0; i < len; i++) {
                 buf[i] = cbuf_get(&out, idx - i);
             }
-            //buf[i + 1] = '\0';
             for(i = 0; i < len; i++) {
                 cbuf_append_char(&out, buf[i]);
                 if(PRINT_DECOMPRESSOR_OUTPUT) { printf("%c", buf[i]); }
                 fputc(buf[i], f2);
             }
-            //cbuf_append_chars(&out, buf, len);
-            //printf("%s", buf);
         }
     }
 }
