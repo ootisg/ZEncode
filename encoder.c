@@ -1,14 +1,10 @@
 #include "data_structures/search_window.h"
+#include "plaintext_encoder.h"
 
-char* dbug_serialize_char(char c) {
-    char* str = malloc(32 * sizeof(char));
-    if (c < 0x20 || c >= 0x7F) {
-        sprintf(str, "[0x%02x]", (uint8_t)c);
-    } else {
-        sprintf(str, "%c", c);
-    }
-    return str;
-}
+#define MAX_FILE_SIZE 1048576
+
+#define SLIDING_WINDOW_SIZE 32768
+#define MAX_MATCH_LENGTH 1024
 
 void encode_file(char* filepath) {
 
@@ -16,9 +12,9 @@ void encode_file(char* filepath) {
     int PRINT_COMPRESSOR_OUTPUT = 0;
 
     search_window buf;
-    search_window_init(&buf, 1024);
+    search_window_init(&buf, SLIDING_WINDOW_SIZE);
 
-    uint8_t fbuf[4096];
+    uint8_t fbuf[MAX_FILE_SIZE];
     FILE* f = fopen(filepath, "rb");
     int c, idx;
     idx = 0;
@@ -31,45 +27,20 @@ void encode_file(char* filepath) {
 
     int buf_len = idx;
     int buf_idx = 0;
-    int max_len = 32;
+    int max_len = MAX_MATCH_LENGTH;
     while(buf_idx < buf_len) {
 
         int bytes_left = buf_len - buf_idx;
         match_info m = search_window_match(&buf, &(fbuf[buf_idx]), bytes_left < max_len ? bytes_left : max_len);
-        if(m.match_len > 0) {
-            search_window_append_chars(&buf, &(fbuf[buf_idx]), m.match_len);
+        if(m.src_len > 0) {
+            search_window_append_chars(&buf, &(fbuf[buf_idx]), m.src_len);
         } else {
             search_window_append_char(&buf, m.nomatch_symbol);
         }
 
-        char sbuf[1024];
-        sprintf(sbuf, "%d %d", m.match_idx, m.match_len);
-        if(PRINT_COMPRESSOR_OUTPUT) { printf(sbuf, "%s"); }
-        fputs(sbuf, f2);
-        if(m.match_len == 0) {
-            sprintf(sbuf, " %d", m.nomatch_symbol);
-            if(PRINT_COMPRESSOR_OUTPUT) { printf(sbuf, "%s"); }
-            fputs(sbuf, f2);
-        }
-        if (ADD_COMPRESSOR_DEBUG) {
-            printf(" ");
-            if(m.match_len == 0) {
-                sprintf(sbuf, "%s", dbug_serialize_char(m.nomatch_symbol));
-                if(PRINT_COMPRESSOR_OUTPUT) { printf(sbuf, "%s"); }
-                fputs(sbuf, f2);
-            } else {
-                int i;
-                for(i = 0; i < m.match_len; i++) {
-                    sprintf(sbuf, "%s", dbug_serialize_char(fbuf[buf_idx + i]));
-                    if(PRINT_COMPRESSOR_OUTPUT) { printf(sbuf, "%s"); }
-                    fputs(sbuf, f2);
-                }
-            }
-        }
-        if(PRINT_COMPRESSOR_OUTPUT) { printf("\n"); }
-        fputc('\n', f2);
+        plaintext_encode_block(f2, &m, &(fbuf[buf_idx]));
 
-        buf_idx += m.match_len > 0 ? m.match_len : 1;
+        buf_idx += m.src_len > 0 ? m.src_len : 1;
 
     }
 
@@ -79,38 +50,35 @@ void encode_file(char* filepath) {
 
 void decode_file(char* filepath) {
 
-    int PRINT_DECOMPRESSOR_OUTPUT = 1;
+    int PRINT_DECOMPRESSOR_OUTPUT = 0;
 
     cbuf out;
-    cbuf_init(&out, 1024);
+    cbuf_init(&out, SLIDING_WINDOW_SIZE);
 
     FILE* f = fopen(filepath, "r");
     FILE* f2 = fopen("decoded.bin", "wb");
-    char sbuf[1024];
-    int last_macthes = 0;
-    int offs, len, symbol;
-    while(last_macthes != EOF) {
-        last_macthes = fscanf(f, "%d", &offs);
-        last_macthes = fscanf(f, "%d", &len);
-        if (last_macthes == EOF) { return; }  // Early return for EOF
-        if (len == 0) { last_macthes = fscanf(f, "%d", &symbol); }
-        if (len == 0) {
-            cbuf_append_char(&out, (char)symbol);
-            if(PRINT_DECOMPRESSOR_OUTPUT) { printf("%c", (char)symbol); }
-            fputc((char)symbol, f2);
+    char sbuf[SLIDING_WINDOW_SIZE];
+    match_info m;
+    int last_block_result = plaintext_decode_block(&m, f);
+    while(last_block_result != EOF) {
+        if (m.src_len == 0) {
+            cbuf_append_char(&out, (char)m.nomatch_symbol);
+            if(PRINT_DECOMPRESSOR_OUTPUT) { printf("%c", (char)m.nomatch_symbol); }
+            fputc((char)m.nomatch_symbol, f2);
         } else {
-            int idx = offs;
+            int idx = m.match_idx;
             int i;
-            char buf[1024];
-            for (i = 0; i < len; i++) {
+            char buf[SLIDING_WINDOW_SIZE];
+            for (i = 0; i < m.src_len; i++) {
                 buf[i] = cbuf_get(&out, idx - i);
             }
-            for(i = 0; i < len; i++) {
+            for(i = 0; i < m.src_len; i++) {
                 cbuf_append_char(&out, buf[i]);
                 if(PRINT_DECOMPRESSOR_OUTPUT) { printf("%c", buf[i]); }
                 fputc(buf[i], f2);
             }
         }
+        last_block_result = plaintext_decode_block(&m, f);
     }
 }
 

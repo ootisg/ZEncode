@@ -1,2 +1,4 @@
 ZEncode
+*.o
 *.bin
+*.txt
