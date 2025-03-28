@@ -8,6 +8,9 @@
 
 void encode_file(char* filepath) {
 
+    ZEncodeHeader header;
+    init_plaintext_header(&header, filepath, MAX_MATCH_LENGTH, SLIDING_WINDOW_SIZE, (void*)0);
+
     int ADD_COMPRESSOR_DEBUG = 0;
     int PRINT_COMPRESSOR_OUTPUT = 0;
 
@@ -24,6 +27,8 @@ void encode_file(char* filepath) {
     fclose(f);
 
     FILE* f2 = fopen("encoded.bin", "w");
+
+    plaintext_write_header(f, &header);
 
     int buf_len = idx;
     int buf_idx = 0;

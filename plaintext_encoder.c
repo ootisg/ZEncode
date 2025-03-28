@@ -1,4 +1,5 @@
 #include "plaintext_encoder.h"
+#include "ZEncode_header.h"
 
 char* dbug_serialize_char(char c) {
     char* str = malloc(32 * sizeof(char));
@@ -8,6 +9,29 @@ char* dbug_serialize_char(char c) {
         sprintf(str, "%c", c);
     }
     return str;
+}
+
+ZEncode_header* init_plaintext_header(void* ptr, char* filename, int max_match_length, int window_size, void* options) {
+    ZEncode_header* header = default_header_init(ptr, fliename, max_match_length, window_size, options);
+    memcpy(&(header->subtype), "LZ77", 4);
+}
+
+void plaintext_read_header(FILE* f, ZEncode_header* header) {
+    char buf[32];
+    fscanf(f, "%s", buf);
+    fscanf(f, "%s", buf);
+
+}
+
+void plaintext_write_header(FILE* f, ZEnocde_header* header_info) {
+    char strbuf[16];
+    memcpy(strbuf, header_info->ZEncode_marker, 8);
+    memcpy(&(strbuf[8]), header_info->subtype, 4);
+    strbuf[12] = '\0';
+    fprintf(f, "s\n", strbuf);
+    fprintf(f, "Encodes %s\n", header_info->original_filename);
+    fprintf(f, "Window Size %d\n", header_info->window_size);
+    fprintf(f, "Max match length %d\n", header_info->max_match_length);
 }
 
 void plaintext_encode_block (FILE* f, match_info* m, uint8_t* dptr) {
