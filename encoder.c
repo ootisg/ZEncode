@@ -1,15 +1,20 @@
 #include "data_structures/search_window.h"
 #include "plaintext_encoder.h"
+#include "ZEncode_header.h"
+
+#include <stdlib.h>
+#include <libgen.h>
 
 #define MAX_FILE_SIZE 1048576
 
 #define SLIDING_WINDOW_SIZE 32768
 #define MAX_MATCH_LENGTH 1024
 
-void encode_file(char* filepath) {
+int encode_file(char* in_file, char* out_file) {
 
-    ZEncodeHeader header;
-    init_plaintext_header(&header, filepath, MAX_MATCH_LENGTH, SLIDING_WINDOW_SIZE, (void*)0);
+    ZEncode_header header;
+    char* basepath = basename(in_file);
+    init_plaintext_header(&header, basepath, MAX_MATCH_LENGTH, SLIDING_WINDOW_SIZE, (void*)0);
 
     int ADD_COMPRESSOR_DEBUG = 0;
     int PRINT_COMPRESSOR_OUTPUT = 0;
@@ -18,7 +23,10 @@ void encode_file(char* filepath) {
     search_window_init(&buf, SLIDING_WINDOW_SIZE);
 
     uint8_t fbuf[MAX_FILE_SIZE];
-    FILE* f = fopen(filepath, "rb");
+    FILE* f = fopen(in_file, "rb");
+    if (!f) {
+        return 1;
+    }
     int c, idx;
     idx = 0;
     while ((c = fgetc(f)) != EOF) {
@@ -26,7 +34,7 @@ void encode_file(char* filepath) {
     }
     fclose(f);
 
-    FILE* f2 = fopen("encoded.bin", "w");
+    FILE* f2 = fopen(out_file, "w");
 
     plaintext_write_header(f, &header);
 
@@ -50,18 +58,27 @@ void encode_file(char* filepath) {
     }
 
     fclose(f2);
+    return 0;
 
 }
 
-void decode_file(char* filepath) {
+int decode_file(ZEncode_header* file_info, char* in_file, char* out_file) {
 
     int PRINT_DECOMPRESSOR_OUTPUT = 0;
 
     cbuf out;
-    cbuf_init(&out, SLIDING_WINDOW_SIZE);
 
-    FILE* f = fopen(filepath, "r");
-    FILE* f2 = fopen("decoded.bin", "wb");
+    FILE* f = fopen(in_file, "r");
+    if (!f) {
+        return 1;
+    }
+    ZEncode_header header;
+    ZEncode_read_common_header_fields(file_info, f);
+    plaintext_read_header(file_info, f);
+
+    cbuf_init(&out, SLIDING_WINDOW_SIZE);
+    FILE* f2 = fopen(out_file ? out_file : file_info->original_filename, "wb");
+
     char sbuf[SLIDING_WINDOW_SIZE];
     match_info m;
     int last_block_result = plaintext_decode_block(&m, f);
@@ -85,11 +102,24 @@ void decode_file(char* filepath) {
         }
         last_block_result = plaintext_decode_block(&m, f);
     }
+
+    return 0;
+
+}
+
+void print_help() {
+    printf("Usage: ZEncode [flags] filepath\n");
+    printf("Flags list:\n");
+    printf("    -c specifies compression mode\n");
+    printf("    -d specifies decompression mode\n");
+    printf("    -o specifies the output filepath. Usage: ZEncode -o output_path input_path\n");
 }
 
 int main(int argc, char** argv) {
-    int compressMode = 1;
+    int compressMode = -1;
     char* filepath = NULL;
+    char* outpath = NULL;
+    char* last = NULL;
     int i;
     for (i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
@@ -97,16 +127,48 @@ int main(int argc, char** argv) {
                 compressMode = 1;
             } else if (argv[i][1] == 'd') {
                 compressMode = 0;
+            } else if (argv[i][1] == 'o') {
+                last = "-o";
+            } else if (!strcmp(argv[i], "--help")) {
+                print_help();
+                return 0;
             }
         } else {
-            filepath = argv[i];
+            if (last) {
+                if (!strcmp(last, "-o")) {
+                    outpath = argv[i];
+                }
+                last = NULL;
+            } else {
+                filepath = argv[i];
+            }
         }
     }
-    if (filepath) {
-        if (compressMode) {
-            encode_file(filepath);
+    if (!filepath) {
+        printf("Usage: ZEncode [flags] filepath, or ZEncode --help for more info\n");
+    }
+    if (compressMode == -1) {
+        compressMode = !ZEncode_check_is_encoded(filepath);
+        if (!compressMode) {
+            printf("Auto-detected as encoded file\n");
+        }
+    }
+    if (compressMode) {
+        printf("Encoding file %s...\n", filepath);
+        int err = encode_file(filepath, outpath ? outpath : "encoded.bin");
+        if (!err) {
+            printf("File encoded! Result saved as %s\n", outpath ? outpath : "encoded.bin");
         } else {
-            decode_file(filepath);
+            printf("Error: file could not be opened\n");
+        }
+    } else {
+        printf("Decoding file %s...\n", filepath);
+        ZEncode_header header;
+        int err = decode_file(&header, filepath, outpath);
+        if (!err) {
+            printf("File decoded! Result saved as %s\n", outpath ? outpath : header.original_filename);
+        } else {
+            printf("Error: file could not be opened\n");
         }
     }
 }

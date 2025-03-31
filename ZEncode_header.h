@@ -3,7 +3,11 @@
 
 #define ZENCODE_FILE_MARKER "ZENCODE "
 
-struct ZEnocde_header {
+#include <stdint.h>
+#include <string.h>
+#include <stdio.h>
+
+struct ZEncode_header {
     char ZEncode_marker[8];
     char subtype[4];
     uint16_t header_length;
@@ -15,15 +19,8 @@ struct ZEnocde_header {
 
 typedef struct ZEncode_header ZEncode_header;
 
-ZEncode_header* default_header_init(void* ptr, char* filename, int max_match_length, int window_size, void* options) {
-    ZEncode_header* header = (ZEncode_header*)ptr;
-    memcpy(&(header->ZEncode_marker), ZENCODE_FILE_MARKER, 8);
-    memcpy(&(header->subtype), "NULL", 4);
-    header->max_match_length = max_match_length;
-    header->original_filename = filename;
-    header->window_size = window_size;
-    header->header_length = 14 + strlen(filename) + 1;
-    return header;
-}
+int ZEncode_check_is_encoded(char* filepath);
+int ZEncode_read_common_header_fields(ZEncode_header* result, FILE* f);
+ZEncode_header* default_header_init(void* ptr, char* filename, int max_match_length, int window_size, void* options);
 
 #endif
