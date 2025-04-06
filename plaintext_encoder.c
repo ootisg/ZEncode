@@ -10,8 +10,8 @@ char* dbug_serialize_char(char c) {
     return str;
 }
 
-ZEncode_header* init_plaintext_header(void* ptr, char* filename, int max_match_length, int window_size, void* options) {
-    ZEncode_header* header = default_header_init(ptr, filename, max_match_length, window_size, options);
+ZEncode_header* init_plaintext_header(void* ptr, char* filename, uint64_t filesize, int max_match_length, int window_size, void* options) {
+    ZEncode_header* header = default_header_init(ptr, 0, PLAINTEXT_FORMAT_VERSION, filename, filesize, max_match_length, window_size, options);
     memcpy(&(header->subtype), "LZ77", 4);
 }
 
@@ -19,12 +19,18 @@ void plaintext_read_header(ZEncode_header* header, FILE* f) {
     int TMP_BUFFER_SIZE = 256;
     char buf[TMP_BUFFER_SIZE];
     fgets(buf, TMP_BUFFER_SIZE, f);  // Skip the first line
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 5; i++) {
         fscanf(f, "%s", buf);
-        if (!strcmp(buf, "Encodes")) {
+        if (!strcmp(buf, "Version")) {
+            fscanf(f, "%s", buf);
+            header->format_version = atoi(buf);
+        } else if (!strcmp(buf, "Encodes")) {
             fscanf(f, "%s", buf);
             header->original_filename = malloc((strlen(buf) + 1) * sizeof(char));
             strcpy(header->original_filename, buf);
+        } else if (!strcmp(buf, "Data_Size")) {
+            fscanf(f, "%s", buf);
+            header->original_filesize = atoll(buf);
         } else if (!strcmp(buf, "Window_Size")) {
             fscanf(f, "%s", buf);
             header->window_size = atoi(buf);
@@ -41,7 +47,9 @@ void plaintext_write_header(FILE* f, ZEncode_header* header_info) {
     memcpy(&(strbuf[8]), header_info->subtype, 4);
     strbuf[12] = '\0';
     fprintf(f, "%s\n", strbuf);
+    fprintf(f, "Version %d\n", header_info->format_version);
     fprintf(f, "Encodes %s\n", header_info->original_filename);
+    fprintf(f, "Data_Size %lu\n", header_info->original_filesize);
     fprintf(f, "Window_Size %d\n", header_info->window_size);
     fprintf(f, "Max_Match_Length %d\n", header_info->max_match_length);
 }
@@ -98,7 +106,7 @@ int plaintext_decode_block (match_info* result, FILE* f) {
         last_matches = fscanf(f, "%d", &symbol);
         result->nomatch_symbol = (char)symbol;
     }
-    if (last_matches == EOF) { return EOF; }  // Early return for EOF
-    return 0;
+    if (last_matches == EOF) { return 0; }  // Early return for EOF
+    return 1;
 
 }

@@ -1,29 +1,38 @@
 #include "data_structures/search_window.h"
 #include "plaintext_encoder.h"
+#include "default_binary_encoder.h"
 #include "ZEncode_header.h"
 
 #include <stdlib.h>
 #include <libgen.h>
 
-#define MAX_FILE_SIZE 1048576
+#define MAX_FILE_SIZE 1073741824
 
 #define SLIDING_WINDOW_SIZE 32768
 #define MAX_MATCH_LENGTH 1024
 
 int encode_file(char* in_file, char* out_file) {
 
-    ZEncode_header header;
-    char* basepath = basename(in_file);
-    init_plaintext_header(&header, basepath, MAX_MATCH_LENGTH, SLIDING_WINDOW_SIZE, (void*)0);
-
     int ADD_COMPRESSOR_DEBUG = 0;
     int PRINT_COMPRESSOR_OUTPUT = 0;
+
+    FILE* f = fopen(in_file, "rb");
+    fseek(f, 0, SEEK_END);
+    uint64_t src_filesize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (src_filesize > MAX_FILE_SIZE) {
+        printf("Error: input file size %lu exceeds maximum (%lu)\n", src_filesize, (uint64_t)MAX_FILE_SIZE);
+        return 1;
+    }
+
+    ZEncode_header header;
+    char* basepath = basename(in_file);
+    init_default_binary_header(&header, basepath, src_filesize, MAX_MATCH_LENGTH, SLIDING_WINDOW_SIZE, (void*)0);
 
     search_window buf;
     search_window_init(&buf, SLIDING_WINDOW_SIZE);
 
-    uint8_t fbuf[MAX_FILE_SIZE];
-    FILE* f = fopen(in_file, "rb");
+    uint8_t* fbuf = malloc(src_filesize);
     if (!f) {
         return 1;
     }
@@ -36,7 +45,7 @@ int encode_file(char* in_file, char* out_file) {
 
     FILE* f2 = fopen(out_file, "w");
 
-    plaintext_write_header(f, &header);
+    default_binary_write_header(f, &header);
 
     int buf_len = idx;
     int buf_idx = 0;
@@ -51,13 +60,14 @@ int encode_file(char* in_file, char* out_file) {
             search_window_append_char(&buf, m.nomatch_symbol);
         }
 
-        plaintext_encode_block(f2, &m, &(fbuf[buf_idx]));
+        default_binary_encode_block(f2, &m, &(fbuf[buf_idx]));
 
         buf_idx += m.src_len > 0 ? m.src_len : 1;
 
     }
 
     fclose(f2);
+    free(fbuf);
     return 0;
 
 }
@@ -74,15 +84,15 @@ int decode_file(ZEncode_header* file_info, char* in_file, char* out_file) {
     }
     ZEncode_header header;
     ZEncode_read_common_header_fields(file_info, f);
-    plaintext_read_header(file_info, f);
+    default_binary_read_header(file_info, f);
 
     cbuf_init(&out, SLIDING_WINDOW_SIZE);
     FILE* f2 = fopen(out_file ? out_file : file_info->original_filename, "wb");
 
     char sbuf[SLIDING_WINDOW_SIZE];
     match_info m;
-    int last_block_result = plaintext_decode_block(&m, f);
-    while(last_block_result != EOF) {
+    int last_block_result = default_binary_decode_block(&m, f);
+    while(last_block_result != 0) {
         if (m.src_len == 0) {
             cbuf_append_char(&out, (char)m.nomatch_symbol);
             if(PRINT_DECOMPRESSOR_OUTPUT) { printf("%c", (char)m.nomatch_symbol); }
@@ -100,7 +110,7 @@ int decode_file(ZEncode_header* file_info, char* in_file, char* out_file) {
                 fputc(buf[i], f2);
             }
         }
-        last_block_result = plaintext_decode_block(&m, f);
+        last_block_result = default_binary_decode_block(&m, f);
     }
 
     return 0;

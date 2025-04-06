@@ -1,10 +1,12 @@
 #include "ZEncode_header.h"
 
-ZEncode_header* default_header_init(void* ptr, char* filename, int max_match_length, int window_size, void* options) {
+ZEncode_header* default_header_init(void* ptr, uint16_t header_length, uint16_t format_version, char* filename, uint64_t filesize, int max_match_length, int window_size, void* options) {
     ZEncode_header* header = (ZEncode_header*)ptr;
     memcpy(&(header->ZEncode_marker), ZENCODE_FILE_MARKER, 8);
     memcpy(&(header->subtype), "NULL", 4);
+    header->format_version = format_version;
     header->max_match_length = max_match_length;
+    header->original_filesize = filesize;
     header->original_filename = filename;
     header->window_size = window_size;
     header->header_length = 14 + strlen(filename) + 1;
