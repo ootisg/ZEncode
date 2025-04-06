@@ -5,8 +5,6 @@ ZEncode_header* init_default_binary_header(void* ptr, char* filename, uint64_t f
     memcpy(&(header->subtype), "DFLT", 4);
 }
 
-int ctr = 0;
-
 void default_binary_read_header(ZEncode_header* header, FILE* f) {
 
     uint16_t format_version, header_length;
@@ -25,7 +23,6 @@ void default_binary_read_header(ZEncode_header* header, FILE* f) {
     original_filename[filename_len] = '\0';
 
     init_default_binary_header(header, original_filename, original_filesize, max_match_length, window_size, NULL);
-    printf("%d, %d, %d, %d, %lu, %s\n", header->format_version, header->header_length, header->max_match_length, header->window_size, header->original_filesize, header->original_filename);
 
 }
 
@@ -40,7 +37,6 @@ void default_binary_write_header(FILE* f, ZEncode_header* header_info) {
     fwrite(&(header_info->original_filesize), 8, 1, f);
     fwrite(&filename_len, 1, 1, f);
     fwrite(header_info->original_filename, 1, filename_len, f);
-    printf("%d, %d, %d, %d, %lu, %s\n", header_info->format_version, header_info->header_length, header_info->max_match_length, header_info->window_size, header_info->original_filesize, header_info->original_filename);
 }
 
 void default_binary_encode_block (FILE* f, match_info* m, uint8_t* dptr) {
@@ -54,7 +50,6 @@ void default_binary_encode_block (FILE* f, match_info* m, uint8_t* dptr) {
         fwrite(&(m->src_len), sizeof(uint16_t), 1, f);
         fwrite(&(m->match_idx), sizeof(uint16_t), 1, f);
     }
-    ctr++;
 }
 
 int default_binary_decode_block (match_info* result, FILE* f) {
@@ -71,6 +66,5 @@ int default_binary_decode_block (match_info* result, FILE* f) {
         bytes_read += fread(&(result->src_len), sizeof(uint16_t), 1, f);
         bytes_read += fread(&(result->match_idx), sizeof(uint16_t), 1, f);
     }
-    ctr++;
     return bytes_read;
 }
