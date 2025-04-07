@@ -9,8 +9,8 @@ typedef struct cbuf search_window;
 // Defines as wrappers for cbuf functions
 #define search_window_init cbuf_init
 #define search_window_destroy cbuf_destroy
-#define search_window_append_char cbuf_append_char
-#define search_window_append_chars cbuf_append_chars
+#define search_window_append_byte cbuf_append_byte
+#define search_window_append_bytes cbuf_append_bytes
 #define search_window_get cbuf_get
 #define search_window_print cbuf_print
 
@@ -23,6 +23,6 @@ struct match_info {
 
 typedef struct match_info match_info;
 
-match_info search_window_match(search_window* buf, uint8_t* match_data, int max_len);
+match_info search_window_match(search_window* buf, uint8_t* match_data, int min_len, int max_len);
 
 #endif

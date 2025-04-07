@@ -2,7 +2,7 @@
 
 cbuf* cbuf_init(void* ptr, int size) {
     cbuf* buf = (cbuf*)ptr;
-    buf->sptr = malloc(size * sizeof(char));
+    buf->sptr = malloc(size * sizeof(uint8_t));
     buf->size = size;
     buf->len = 0;
     buf->idx = 0;
@@ -13,20 +13,20 @@ void cbuf_destroy(cbuf* buf) {
     free(buf->sptr);
 }
 
-void cbuf_append_char(cbuf* buf, char data) {
+void cbuf_append_byte(cbuf* buf, uint8_t data) {
     buf->idx = (buf->idx - 1) % buf->size;
     buf->sptr[buf->idx] = data;
     buf->len = buf->len + 1 > buf->size ? buf->size : buf->len + 1;
 }
 
-void cbuf_append_chars(cbuf* buf, char* data, int data_len) {
+void cbuf_append_bytes(cbuf* buf, uint8_t* data, int data_len) {
     int i;
     for (i = 0; i < data_len; i++) {
-        cbuf_append_char(buf, data[i]);
+        cbuf_append_byte(buf, data[i]);
     }
 }
 
-char cbuf_get(cbuf* buf, int idx) {
+uint8_t cbuf_get(cbuf* buf, int idx) {
     return buf->sptr[(buf->idx + idx) % buf->size];
 }
 

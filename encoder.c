@@ -53,11 +53,11 @@ int encode_file(char* in_file, char* out_file) {
     while(buf_idx < buf_len) {
 
         int bytes_left = buf_len - buf_idx;
-        match_info m = search_window_match(&buf, &(fbuf[buf_idx]), bytes_left < max_len ? bytes_left : max_len);
+        match_info m = search_window_match(&buf, &(fbuf[buf_idx]), 2, bytes_left < max_len ? bytes_left : max_len);
         if(m.src_len > 0) {
-            search_window_append_chars(&buf, &(fbuf[buf_idx]), m.src_len);
+            search_window_append_bytes(&buf, &(fbuf[buf_idx]), m.src_len);
         } else {
-            search_window_append_char(&buf, m.nomatch_symbol);
+            search_window_append_byte(&buf, m.nomatch_symbol);
         }
 
         default_binary_encode_block(f2, &m, &(fbuf[buf_idx]));
@@ -94,7 +94,7 @@ int decode_file(ZEncode_header* file_info, char* in_file, char* out_file) {
     int last_block_result = default_binary_decode_block(&m, f);
     while(last_block_result != 0) {
         if (m.src_len == 0) {
-            cbuf_append_char(&out, (char)m.nomatch_symbol);
+            cbuf_append_byte(&out, (char)m.nomatch_symbol);
             if(PRINT_DECOMPRESSOR_OUTPUT) { printf("%c", (char)m.nomatch_symbol); }
             fputc((char)m.nomatch_symbol, f2);
         } else {
@@ -105,7 +105,7 @@ int decode_file(ZEncode_header* file_info, char* in_file, char* out_file) {
                 buf[i] = cbuf_get(&out, idx - i);
             }
             for(i = 0; i < m.src_len; i++) {
-                cbuf_append_char(&out, buf[i]);
+                cbuf_append_byte(&out, buf[i]);
                 if(PRINT_DECOMPRESSOR_OUTPUT) { printf("%c", buf[i]); }
                 fputc(buf[i], f2);
             }

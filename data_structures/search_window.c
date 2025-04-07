@@ -1,6 +1,6 @@
 #include "search_window.h"
 
-match_info search_window_match(search_window* buf, uint8_t* match_data, int max_len) {
+match_info search_window_match(search_window* buf, uint8_t* match_data, int min_len, int max_len) {
 
     match_info curr;
     curr.match_idx = 0;
@@ -21,7 +21,7 @@ match_info search_window_match(search_window* buf, uint8_t* match_data, int max_
 
     }
 
-    if(curr.src_len == 0) {
+    if(curr.src_len < min_len) {
         curr.nomatch_symbol = match_data[0];
     }
 
