@@ -18,7 +18,8 @@ struct match_info {
     uint32_t match_idx;
     uint32_t src_len;
     uint32_t dest_len;
-    uint8_t nomatch_symbol;
+    uint32_t raw_len;
+    uint8_t* raw_buf;
 };
 
 typedef struct match_info match_info;

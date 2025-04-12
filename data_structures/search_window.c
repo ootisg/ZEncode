@@ -22,6 +22,7 @@ match_info search_window_match(search_window* buf, uint8_t* match_data, int min_
     }
 
     if(curr.src_len < min_len) {
+        curr.src_len = 0;
         curr.nomatch_symbol = match_data[0];
     }
 

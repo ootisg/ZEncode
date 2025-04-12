@@ -53,7 +53,7 @@ int encode_file(char* in_file, char* out_file) {
     while(buf_idx < buf_len) {
 
         int bytes_left = buf_len - buf_idx;
-        match_info m = search_window_match(&buf, &(fbuf[buf_idx]), 2, bytes_left < max_len ? bytes_left : max_len);
+        match_info m = search_window_match(&buf, &(fbuf[buf_idx]), 4, bytes_left < max_len ? bytes_left : max_len);
         if(m.src_len > 0) {
             search_window_append_bytes(&buf, &(fbuf[buf_idx]), m.src_len);
         } else {
